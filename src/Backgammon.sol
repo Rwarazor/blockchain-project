@@ -33,22 +33,21 @@ library Backgammon {
         uint8 slotTo;
     }
 
-    function makeState(bool isFirstPlayerMove) internal pure returns (State memory) {
-        State memory result;
+    function resetState(State storage state) internal {
         // first player
-        result.piecesOnSlot += 2 << 0;
-        result.piecesOnSlot += 5 << (11 * 8);
-        result.piecesOnSlot += 3 << (16 * 8);
-        result.piecesOnSlot += 5 << (18 * 8);
-        result.homePieces += 5 << 0;
+        state.piecesOnSlot += 2 << 0;
+        state.piecesOnSlot += 5 << (11 * 8);
+        state.piecesOnSlot += 3 << (16 * 8);
+        state.piecesOnSlot += 5 << (18 * 8);
+        state.homePieces += 5 << 0;
         // second player
-        result.piecesOnSlot += (128 + 2) << ((23 - 0) * 8);
-        result.piecesOnSlot += (128 + 5) << ((23 - 11) * 8);
-        result.piecesOnSlot += (128 + 3) << ((23 - 16) * 8);
-        result.piecesOnSlot += (128 + 5) << ((23 - 18) * 8);
-        result.homePieces += 5 << 8;
+        state.piecesOnSlot += (128 + 2) << ((23 - 0) * 8);
+        state.piecesOnSlot += (128 + 5) << ((23 - 11) * 8);
+        state.piecesOnSlot += (128 + 3) << ((23 - 16) * 8);
+        state.piecesOnSlot += (128 + 5) << ((23 - 18) * 8);
+        state.homePieces += 5 << 8;
 
-        return result;
+        state.isFirstPlayerMove = true;
     }
 
     function winningPlayer(State storage state) internal view returns (uint8) {
@@ -60,12 +59,11 @@ library Backgammon {
         return 0;
     }
 
-    function setIsFirstPlayerMove(State storage state, bool val) internal {
-        state.isFirstPlayerMove = val;
-
-    }
-
-    function makeMove(State storage state, uint8 roll, Move memory move) internal {
+    function makeMove(
+        State storage state,
+        uint8 roll,
+        Move memory move
+    ) internal {
         // TODO: no moves logic
         if (move.isGivenUp) {
             return;
@@ -79,7 +77,8 @@ library Backgammon {
                 state.blottedPieces -= 1;
             } else if (move.slotTo == 25) {
                 require(
-                    (state.homePieces & 255) == 15 - (state.bearedOffPieces & 255),
+                    (state.homePieces & 255) ==
+                        15 - (state.bearedOffPieces & 255),
                     "Bearing off pieces while some pieces are not home is not allowed"
                 );
                 // TODO: complex slotFrom requirement
@@ -97,11 +96,13 @@ library Backgammon {
             }
             if (move.slotFrom != 0) {
                 require(
-                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) & 128 == 0,
+                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) & 128 ==
+                        0,
                     "Moving enemy pieces is not allowed"
                 );
                 require(
-                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) >= 1,
+                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) & 255 >=
+                        1,
                     "No piece to move"
                 );
                 state.piecesOnSlot -= 1 << ((move.slotFrom - 1) * 8);
@@ -111,10 +112,14 @@ library Backgammon {
                     move.slotTo - move.slotFrom == roll,
                     "must move exactly rolled amount"
                 );
-                if ((state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 128 == 0) {
+                if (
+                    (state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 128 == 0
+                ) {
                     // no secondPlayer pieces
                     state.piecesOnSlot += 1 << ((move.slotTo - 1) * 8);
-                } else if ((state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 127 == 1) {
+                } else if (
+                    (state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 127 == 1
+                ) {
                     // single secondPlayer piece
                     state.piecesOnSlot &= ~(255 << ((move.slotTo - 1) * 8));
                     state.piecesOnSlot |= 1 << ((move.slotTo - 1) * 8);
@@ -138,7 +143,8 @@ library Backgammon {
                 state.blottedPieces -= 1 << 8;
             } else if (move.slotTo == 0) {
                 require(
-                    (state.homePieces >> 8) == 15 - (state.bearedOffPieces >> 8),
+                    (state.homePieces >> 8) ==
+                        15 - (state.bearedOffPieces >> 8),
                     "Bearing off pieces while some pieces are not home is not allowed"
                 );
                 // TODO: complex slotFrom requirement
@@ -156,13 +162,16 @@ library Backgammon {
             }
             if (move.slotFrom != 25) {
                 require(
-                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) >= 129,
+                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) & 255 >=
+                        129,
                     "Moving enemy pieces is not allowed/No piece to move"
                 );
                 state.piecesOnSlot -= 1 << ((move.slotFrom - 1) * 8);
-                if ((state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) == 128) {
-                    state.piecesOnSlot &= ~(255 << ((move.slotTo - 1) * 8));
-                    state.piecesOnSlot |= 1 << ((move.slotTo - 1) * 8);
+                if (
+                    (state.piecesOnSlot >> ((move.slotFrom - 1) * 8)) & 255 ==
+                    128
+                ) {
+                    state.piecesOnSlot &= ~(255 << ((move.slotFrom - 1) * 8));
                 }
             }
             if (move.slotTo != 0) {
@@ -170,16 +179,20 @@ library Backgammon {
                     move.slotFrom - move.slotTo == roll,
                     "must move exactly rolled amount"
                 );
-                if ((state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 128 == 0) {
+                if (
+                    (state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 255 == 0
+                ) {
                     // no pieces
-                    state.piecesOnSlot &= ~(255 << ((move.slotTo - 1) * 8));
                     state.piecesOnSlot |= 129 << ((move.slotTo - 1) * 8);
-                } else if ((state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 128 == 1) {
+                } else if (
+                    (state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 128 == 128
+                ) {
                     // some secondPlayer pieces
                     state.piecesOnSlot += 1 << ((move.slotTo - 1) * 8);
-                } else if ((state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 127 == 1) {
-                    // single secondPlayer piece
-                    state.piecesOnSlot &= ~(255 << ((move.slotTo - 1) * 8));
+                } else if (
+                    (state.piecesOnSlot >> ((move.slotTo - 1) * 8)) & 127 == 1
+                ) {
+                    // single firstPlayer piece
                     state.piecesOnSlot |= 129 << ((move.slotTo - 1) * 8);
                     if (move.slotTo - 1 >= 19) {
                         state.homePieces -= 1;
